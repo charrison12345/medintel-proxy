@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MedIntel — Continuum Health</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #F0F2F5; --surface: #fff; --border: #E2E6EC; --ink: #111827;
+    --muted: #6B7280; --subtle: #9CA3AF;
+    --accent: #1A56DB; --accent-light: #EBF0FD; --accent-mid: #93B4F5;
+    --green: #059669; --green-light: #D1FAE5;
+    --amber: #D97706; --amber-light: #FEF3C7;
+    --red: #DC2626; --red-light: #FEE2E2;
+    --violet: #7C3AED; --violet-light: #EDE9FE;
+    --pink: #DB2777; --pink-light: #FCE7F3;
+  }
+  html, body { height: 100%; font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--ink); }
+  button { cursor: pointer; font-family: inherit; border: none; }
+  input, textarea, select { font-family: inherit; outline: none; }
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #C8CDD6; border-radius: 99px; }
+
+  /* Layout */
+  #app { display: flex; flex-direction: column; height: 100vh; }
+  header { background: var(--surface); border-bottom: 1px solid var(--border); height: 54px; padding: 0 20px; display: flex; align-items: center; gap: 14px; position: sticky; top: 0; z-index: 100; flex-shrink: 0; }
+  .main { display: flex; flex: 1; overflow: hidden; }
+  aside { width: 210px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
+  #doc-list { width: 300px; border-right: 1px solid var(--border); background: var(--bg); display: flex; flex-direction: column; flex-shrink: 0; overflow-y: auto; }
+  #main-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  #content-area { flex: 1; overflow-y: auto; padding: 20px; }
+
+  /* Animations */
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes slide { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+  .spin { animation: spin 1s linear infinite; display: inline-block; }
+  .slide { animation: slide 0.25s ease; }
+  .pulse { animation: pulse 1.4s ease infinite; }
+
+  /* Logo */
+  .logo-icon { width: 30px; height: 30px; background: var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 800; font-size: 11px; flex-shrink: 0; }
+  .logo-name { font-weight: 800; font-size: 15px; letter-spacing: -0.02em; }
+  .logo-sub { font-size: 11px; color: var(--subtle); font-weight: 500; }
+  .divider { width: 1px; height: 18px; background: var(--border); }
+  .header-label { font-size: 12px; color: var(--muted); font-weight: 500; }
+  .status-dot { width: 7px; height: 7px; border-radius: 99px; background: var(--green); display: inline-block; }
+  .status-label { font-size: 12px; color: var(--green); font-weight: 600; }
+  .avatar { width: 32px; height: 32px; border-radius: 99px; background: var(--accent-light); color: var(--accent); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 12px; }
+
+  /* Sidebar folders */
+  .folder-label { padding: 14px 12px 6px; font-size: 10px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--subtle); }
+  .folder-btn { display: flex; align-items: center; gap: 9px; padding: 9px 10px; margin: 1px 8px; border-radius: 8px; width: calc(100% - 16px); background: transparent; color: var(--ink); font-weight: 500; font-size: 13.5px; transition: background 0.1s; text-align: left; }
+  .folder-btn.active { background: var(--accent-light); color: var(--accent); font-weight: 700; }
+  .folder-count { font-size: 11px; font-weight: 700; background: var(--border); color: var(--muted); border-radius: 99px; padding: 1px 6px; margin-left: auto; }
+  .folder-btn.active .folder-count { background: var(--accent); color: #fff; }
+  .sidebar-footer { padding: 12px 14px; border-top: 1px solid var(--border); font-size: 11px; color: var(--subtle); line-height: 1.9; margin-top: auto; }
+  .sidebar-footer strong { color: var(--muted); }
+
+  /* Doc list */
+  .doc-list-header { padding: 12px 14px 8px; position: sticky; top: 0; background: var(--bg); z-index: 10; border-bottom: 1px solid var(--border); }
+  .doc-list-header h2 { font-weight: 800; font-size: 15px; }
+  .doc-list-header p { font-size: 12px; color: var(--muted); }
+  .doc-item { display: block; text-align: left; padding: 13px 14px; border: none; border-bottom: 1px solid var(--border); background: var(--surface); cursor: pointer; width: 100%; transition: background 0.1s; }
+  .doc-item:hover, .doc-item.active { background: var(--accent-light); }
+  .doc-item-name { font-weight: 700; font-size: 13px; }
+  .doc-item-meta { font-size: 12px; color: var(--muted); margin: 4px 0; }
+  .doc-item-chips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .doc-item-date { font-size: 11px; color: var(--subtle); }
+  .empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px; text-align: center; color: var(--subtle); gap: 8px; }
+  .empty-icon { font-size: 32px; }
+
+  /* Chips & badges */
+  .chip { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 99px; white-space: nowrap; }
+  .badge { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 8px; border-radius: 99px; }
+  .badge-inbox      { background: var(--accent-light); color: var(--accent); }
+  .badge-pending    { background: var(--amber-light);  color: var(--amber); }
+  .badge-inprogress { background: var(--violet-light); color: var(--violet); }
+  .badge-completed  { background: var(--green-light);  color: var(--green); }
+  .badge-archived   { background: #F3F4F6; color: var(--muted); }
+
+  /* Doc header */
+  #doc-header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 11px 20px; display: flex; align-items: center; gap: 10px; flex-shrink: 0; flex-wrap: wrap; }
+  .doc-header-info { flex: 1; min-width: 200px; }
+  .doc-header-patient { font-weight: 800; font-size: 16px; display: flex; align-items: center; gap: 8px; margin-bottom: 3px; flex-wrap: wrap; }
+  .doc-header-meta { font-size: 11px; color: var(--muted); display: flex; gap: 14px; flex-wrap: wrap; }
+
+  /* Tabs */
+  #tabs { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 20px; display: flex; flex-shrink: 0; }
+  .tab-btn { padding: 10px 18px; border: none; border-bottom: 2px solid transparent; background: transparent; font-size: 13px; font-weight: 500; color: var(--muted); margin-bottom: -1px; transition: all 0.1s; cursor: pointer; }
+  .tab-btn.active { border-bottom-color: var(--accent); color: var(--accent); font-weight: 700; }
+
+  /* Buttons */
+  .btn-primary { background: var(--accent); color: #fff; border-radius: 8px; padding: 8px 18px; font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 7px; box-shadow: 0 2px 8px rgba(26,86,219,0.3); transition: all 0.15s; }
+  .btn-primary:disabled { background: var(--muted); box-shadow: none; }
+  .btn-secondary { background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; font-size: 13px; color: var(--ink); font-weight: 500; }
+  .btn-add { background: var(--accent); color: #fff; border-radius: 8px; padding: 7px 14px; font-size: 13px; font-weight: 700; }
+
+  /* Dropdown */
+  .dropdown-wrap { position: relative; }
+  .dropdown-menu { position: absolute; top: calc(100% + 4px); right: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.1); z-index: 200; min-width: 170px; overflow: hidden; display: none; }
+  .dropdown-menu.open { display: block; }
+  .dropdown-item { display: block; width: 100%; text-align: left; padding: 9px 14px; border: none; background: transparent; font-size: 13px; color: var(--ink); cursor: pointer; }
+  .dropdown-item:hover { background: var(--bg); }
+
+  /* Annotated med list */
+  .med-list { display: flex; flex-direction: column; gap: 6px; }
+  .med-item { border-radius: 9px; padding: 10px 12px; transition: all 0.15s; cursor: default; border: 1.5px solid var(--border); background: var(--surface); }
+  .med-item.clickable { cursor: pointer; }
+  .med-item.dimmed { opacity: 0.35; }
+  .med-item-row { display: flex; align-items: flex-start; gap: 8px; }
+  .med-num { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--subtle); padding-top: 2px; min-width: 18px; }
+  .med-name { font-size: 13px; font-weight: 500; color: var(--ink); line-height: 1.4; }
+  .med-name.flagged { font-weight: 700; }
+  .med-tags { margin-top: 5px; display: flex; flex-wrap: wrap; gap: 4px; }
+  .med-tag { font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 99px; color: #fff; display: flex; align-items: center; gap: 3px; }
+
+  /* Annotation drawer */
+  #annotation-drawer { position: absolute; bottom: 0; left: 0; right: 0; background: var(--surface); border-top: 2px solid var(--accent); padding: 16px; z-index: 50; box-shadow: 0 -4px 20px rgba(0,0,0,0.13); animation: slideUp 0.2s ease; border-radius: 0 0 12px 12px; display: none; }
+  #annotation-drawer.open { display: block; }
+  .drawer-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .drawer-med-name { font-weight: 700; font-size: 13px; }
+  .drawer-close { background: none; border: none; font-size: 18px; color: var(--muted); line-height: 1; cursor: pointer; }
+  .drawer-items { display: flex; flex-direction: column; gap: 8px; }
+  .drawer-item { border-radius: 9px; padding: 9px 13px; }
+  .drawer-item-header { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+  .drawer-item-label { font-size: 11px; font-weight: 700; color: #fff; padding: 1px 7px; border-radius: 99px; margin-left: auto; }
+  .drawer-item-detail { font-size: 12.5px; line-height: 1.6; }
+
+  /* Category filter */
+  .cat-filter-label { font-size: 10px; font-weight: 800; color: var(--muted); letter-spacing: 0.07em; text-transform: uppercase; margin-bottom: 7px; }
+  .cat-filter-btns { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 12px; }
+  .cat-btn { display: flex; align-items: center; gap: 5px; padding: 5px 11px; border-radius: 99px; font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.15s; }
+  .cat-clear { padding: 5px 11px; border-radius: 99px; font-size: 12px; font-weight: 600; border: 1.5px solid var(--border); background: #F3F4F6; color: var(--muted); cursor: pointer; }
+
+  /* RMSI */
+  .rmsi-hero { border-radius: 14px; padding: 16px 20px; margin-bottom: 12px; display: flex; align-items: center; gap: 14px; border-width: 2px; border-style: solid; }
+  .rmsi-icon { font-size: 36px; }
+  .rmsi-score { font-weight: 800; font-size: 22px; line-height: 1; }
+  .rmsi-overview { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .rmsi-drivers { margin-top: 7px; display: flex; flex-wrap: wrap; gap: 5px; }
+  .rmsi-driver { font-size: 11px; background: rgba(0,0,0,0.09); padding: 2px 8px; border-radius: 99px; font-weight: 600; }
+
+  /* Section card */
+  .section-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 12px; }
+  .section-card-header { padding: 10px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; background: #FAFBFC; font-weight: 700; font-size: 13px; }
+  .section-card-body { padding: 16px; }
+
+  /* Table */
+  .data-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .data-table th { text-align: left; padding: 7px 10px; font-weight: 700; color: var(--muted); border-bottom: 1px solid var(--border); white-space: nowrap; background: #F9FAFB; }
+  .data-table td { padding: 8px 10px; vertical-align: top; line-height: 1.5; border-bottom: 1px solid var(--border); }
+  .empty-table { font-size: 13px; color: var(--subtle); font-style: italic; }
+
+  /* Doc preview box */
+  .doc-preview { font-family: 'DM Mono', monospace; font-size: 11px; line-height: 1.9; margin-bottom: 14px; padding: 10px 12px; background: #F9FAFB; border-radius: 8px; border: 1px solid var(--border); }
+
+  /* Legend */
+  .legend { margin-top: 12px; background: var(--surface); border-radius: 10px; border: 1px solid var(--border); padding: 12px 14px; }
+  .legend-title { font-size: 10px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 9px; }
+  .legend-item { display: flex; align-items: flex-start; gap: 9px; margin-bottom: 6px; }
+  .legend-swatch { width: 14px; height: 14px; border-radius: 3px; display: inline-block; flex-shrink: 0; margin-top: 1px; border-width: 2px; border-style: solid; }
+  .legend-name { font-size: 12px; font-weight: 700; }
+  .legend-rule { font-size: 10.5px; color: var(--muted); line-height: 1.4; }
+
+  /* Annot summary */
+  .annot-summary-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 14px; }
+  .annot-summary-header { padding: 10px 16px; border-bottom: 1px solid var(--border); font-weight: 700; font-size: 13px; background: #FAFBFC; }
+  .annot-summary-body { padding: 12px 16px; display: flex; flex-direction: column; gap: 7px; }
+  .annot-summary-item { display: flex; align-items: center; gap: 10px; padding: 8px 11px; border-radius: 8px; border: 1.5px solid var(--border); background: transparent; cursor: pointer; text-align: left; width: 100%; transition: all 0.15s; }
+  .annot-summary-item.active { }
+  .annot-swatch { width: 12px; height: 12px; border-radius: 3px; display: inline-block; flex-shrink: 0; border-width: 2px; border-style: solid; }
+  .annot-summary-label { font-size: 13px; font-weight: 600; flex: 1; }
+  .annot-summary-count { font-size: 12px; font-weight: 800; padding: 2px 9px; border-radius: 99px; border-width: 1px; border-style: solid; }
+
+  /* Key concerns */
+  .concerns-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .concerns-header { padding: 10px 16px; border-bottom: 1px solid var(--border); font-weight: 700; font-size: 13px; background: #FAFBFC; }
+  .concerns-body { padding: 12px 16px; display: flex; flex-direction: column; gap: 9px; }
+  .concern-item { display: flex; gap: 9px; }
+  .concern-num { font-weight: 800; color: var(--red); min-width: 20px; font-size: 13px; }
+  .concern-text { font-size: 13px; line-height: 1.55; }
+
+  /* Provider messages */
+  .provider-msg { background: var(--accent-light); border: 1px solid var(--accent-mid); border-radius: 8px; padding: 10px 14px; margin-bottom: 8px; }
+  .provider-msg-issue { font-weight: 700; font-size: 12px; color: var(--accent); margin-bottom: 3px; }
+  .provider-msg-text { font-size: 13px; line-height: 1.55; }
+
+  /* Disclaimer */
+  .disclaimer { background: var(--amber-light); border: 1px solid var(--amber); border-radius: 10px; padding: 11px 15px; font-size: 12px; color: #92400E; line-height: 1.65; margin-top: 12px; }
+
+  /* Generating state */
+  .generating-box { background: var(--surface); border-radius: 14px; border: 1px solid var(--border); padding: 52px; text-align: center; max-width: 520px; margin: 0 auto; }
+  .generating-icon { font-size: 42px; margin-bottom: 16px; }
+  .generating-title { font-weight: 800; font-size: 18px; margin-bottom: 8px; }
+  .generating-sub { font-size: 13px; color: var(--muted); margin-bottom: 24px; line-height: 1.7; }
+  .generating-bar-wrap { height: 4px; border-radius: 99px; background: var(--border); overflow: hidden; max-width: 300px; margin: 0 auto; }
+  .generating-bar { height: 100%; width: 65%; background: var(--accent); border-radius: 99px; animation: pulse 1.4s ease infinite; }
+
+  /* Error box */
+  .error-box { background: var(--red-light); border: 1px solid var(--red); border-radius: 12px; padding: 22px; max-width: 520px; margin: 0 auto; }
+  .error-title { font-weight: 700; font-size: 14px; color: var(--red); margin-bottom: 8px; }
+  .error-msg { font-size: 13px; margin-bottom: 8px; }
+  .error-hint { font-size: 12px; color: var(--muted); }
+
+  /* Empty review */
+  .empty-review { background: var(--surface); border-radius: 14px; border: 1px dashed var(--border); padding: 56px; text-align: center; color: var(--subtle); max-width: 520px; margin: 0 auto; }
+  .empty-review-icon { font-size: 44px; margin-bottom: 16px; }
+  .empty-review-title { font-size: 16px; font-weight: 700; color: var(--muted); margin-bottom: 8px; }
+
+  /* Two-col layout */
+  .two-col { display: flex; gap: 18px; align-items: flex-start; }
+  .col-left { flex: 0 0 400px; }
+  .col-right { flex: 1; min-width: 0; }
+  .doc-panel { background: var(--surface); border-radius: 12px; border: 1px solid var(--border); overflow: hidden; position: relative; }
+  .doc-panel-header { padding: 10px 16px; border-bottom: 1px solid var(--border); background: #FAFBFC; display: flex; align-items: center; justify-content: space-between; }
+  .doc-panel-title { font-weight: 700; font-size: 12px; color: var(--muted); }
+  .doc-panel-flags { font-size: 11px; color: var(--red); font-weight: 700; }
+  .doc-panel-body { padding: 14px; }
+
+  /* Modal */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 500; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .modal { background: var(--surface); border-radius: 16px; width: 100%; max-width: 520px; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+  .modal-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .modal-title { font-weight: 800; font-size: 16px; }
+  .modal-close { background: none; border: none; font-size: 20px; color: var(--muted); cursor: pointer; }
+  .modal-body { padding: 20px; overflow-y: auto; flex: 1; }
+  .modal-footer { padding: 14px 20px; border-top: 1px solid var(--border); display: flex; gap: 10px; }
+  .modal-info { background: var(--accent-light); border: 1px solid var(--accent-mid); border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; font-size: 12px; color: var(--accent); line-height: 1.6; }
+  .field { margin-bottom: 14px; }
+  .field-label { font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 5px; }
+  .field input, .field textarea, .field select { width: 100%; padding: 8px 12px; border-radius: 8px; border: 1.5px solid var(--border); font-size: 13px; color: var(--ink); }
+  .field textarea { resize: vertical; line-height: 1.6; }
+
+  /* Toast */
+  #toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); padding: 10px 20px; border-radius: 99px; font-size: 13px; font-weight: 600; box-shadow: 0 4px 20px rgba(0,0,0,0.2); z-index: 9999; display: flex; align-items: center; gap: 8px; white-space: nowrap; animation: slide 0.25s ease; display: none; }
+
+  /* No doc selected */
+  .no-doc { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--subtle); gap: 12px; }
+  .no-doc-icon { font-size: 44px; }
+  .no-doc-title { font-size: 15px; font-weight: 700; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <header>
+    <div class="logo-icon">Rx</div>
+    <span class="logo-name">MedIntel</span>
+    <span class="logo-sub">by Continuum Health</span>
+    <div class="divider"></div>
+    <span class="header-label">Consultant Pharmacy Document Workflow</span>
+    <div style="flex:1"></div>
+    <span class="status-dot"></span>
+    <span class="status-label">Claude AI Connected</span>
+    <button class="btn-add" onclick="openAddModal()">＋ Add Patient</button>
+    <div class="avatar">CH</div>
+  </header>
+
+  <div class="main">
+    <aside>
+      <div class="folder-label">Folders</div>
+      <div id="folder-nav"></div>
+      <div class="sidebar-footer">
+        <strong>AI Engine</strong><br>
+        Claude Sonnet<br>
+        MedIntel v1.0
+      </div>
+    </aside>
+
+    <div id="doc-list">
+      <div class="doc-list-header">
+        <h2 id="folder-title">Inbox</h2>
+        <p id="folder-count">0 documents</p>
+      </div>
+      <div id="doc-items"></div>
+    </div>
+
+    <div id="main-panel">
+      <div class="no-doc" id="no-doc-state">
+        <div class="no-doc-icon">📄</div>
+        <div class="no-doc-title">Select a document to review</div>
+        <button class="btn-add" onclick="openAddModal()" style="margin-top:4px">＋ Add Your Own Patient Case</button>
+      </div>
+
+      <div id="doc-view" style="display:none; flex-direction:column; flex:1; overflow:hidden;">
+        <div id="doc-header">
+          <div class="doc-header-info">
+            <div class="doc-header-patient">
+              <span id="dh-patient"></span>
+              <span id="dh-badge" class="badge"></span>
+              <span id="dh-fax" class="chip" style="display:none; color:var(--accent); background:var(--accent-light)">eFax</span>
+            </div>
+            <div class="doc-header-meta">
+              <span id="dh-mrn"></span>
+              <span id="dh-facility"></span>
+              <span id="dh-received"></span>
+            </div>
+          </div>
+          <div class="dropdown-wrap">
+            <button class="btn-secondary" onclick="toggleMoveMenu()">Move to ▾</button>
+            <div class="dropdown-menu" id="move-menu"></div>
+          </div>
+          <button class="btn-primary" id="run-btn" onclick="generateReport()">
+            <span>⚕</span><span id="run-btn-text">Run Medication Review</span>
+          </button>
+        </div>
+
+        <div id="tabs" style="display:none">
+          <button class="tab-btn active" onclick="switchTab('annotated')" id="tab-annotated">📌 Annotated Document</button>
+          <button class="tab-btn" onclick="switchTab('report')" id="tab-report">📊 Full Report</button>
+        </div>
+
+        <div id="content-area">
+          <div id="state-generating" style="display:none">
+            <div class="generating-box">
+              <div class="generating-icon pulse">⚕</div>
+              <div class="generating-title">MedIntel is reviewing…</div>
+              <div class="generating-sub">Checking interactions · Duplications · Psychoactive meds · CMS risks</div>
+              <div class="generating-bar-wrap"><div class="generating-bar"></div></div>
+            </div>
+          </div>
+          <div id="state-error" style="display:none">
+            <div class="error-box">
+              <div class="error-title">⚠ Review Error</div>
+              <div class="error-msg" id="error-msg-text"></div>
+              <div class="error-hint">Check that your ANTHROPIC_API_KEY is set correctly in the server environment.</div>
+            </div>
+          </div>
+          <div id="state-empty" style="display:none">
+            <div class="empty-review">
+              <div class="empty-review-icon">⚕</div>
+              <div class="empty-review-title">No review yet</div>
+              <div style="font-size:13px">Click <b>Run Medication Review</b> to generate color-coded annotations</div>
+            </div>
+          </div>
+          <div id="state-annotated" style="display:none" class="slide">
+            <div class="two-col">
+              <div class="col-left">
+                <div class="doc-panel">
+                  <div class="doc-panel-header">
+                    <span class="doc-panel-title">📌 Annotated Medication List</span>
+                    <span class="doc-panel-flags" id="flag-count"></span>
+                  </div>
+                  <div class="doc-panel-body">
+                    <div class="doc-preview" id="doc-preview-box"></div>
+                    <div id="cat-filter-wrap"></div>
+                    <div class="med-list" id="med-list"></div>
+                  </div>
+                  <div id="annotation-drawer">
+                    <div class="drawer-header">
+                      <span class="drawer-med-name" id="drawer-med-name"></span>
+                      <button class="drawer-close" onclick="closeDrawer()">✕</button>
+                    </div>
+                    <div class="drawer-items" id="drawer-items"></div>
+                  </div>
+                </div>
+                <div class="legend" id="legend-box"></div>
+              </div>
+              <div class="col-right">
+                <div id="rmsi-mini"></div>
+                <div class="annot-summary-card" id="annot-summary" style="display:none">
+                  <div class="annot-summary-header">📌 Annotation Summary</div>
+                  <div class="annot-summary-body" id="annot-summary-body"></div>
+                </div>
+                <div class="concerns-card" id="concerns-card" style="display:none">
+                  <div class="concerns-header">⚡ Key Concerns</div>
+                  <div class="concerns-body" id="concerns-body"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div id="state-report" style="display:none" class="slide">
+            <div id="report-content"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add Patient Modal -->
+<div class="modal-overlay" id="add-modal" style="display:none">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Add Patient Case</span>
+      <button class="modal-close" onclick="closeAddModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-info">Enter one item per line for diagnoses and medications. Use generic drug names with dose and frequency.</div>
+      <div class="field"><div class="field-label">Patient Label (no real names)</div><input id="f-patient" placeholder="e.g. Test Patient 1"></div>
+      <div class="field"><div class="field-label">Date of Birth</div><input id="f-dob" placeholder="e.g. 1942-05-10"></div>
+      <div class="field"><div class="field-label">MRN / ID</div><input id="f-mrn" placeholder="e.g. MRN-TEST-001"></div>
+      <div class="field"><div class="field-label">Facility</div><input id="f-facility" placeholder="e.g. Sunrise SNF"></div>
+      <div class="field">
+        <div class="field-label">Document Type</div>
+        <select id="f-type">
+          <option>Medication List</option>
+          <option>Discharge Summary</option>
+          <option>Physician Order</option>
+        </select>
+      </div>
+      <div class="field"><div class="field-label">Diagnoses (one per line)</div><textarea id="f-diagnoses" rows="4" placeholder="Heart Failure&#10;Hypertension&#10;Dementia"></textarea></div>
+      <div class="field"><div class="field-label">Medications (one per line) *required</div><textarea id="f-meds" rows="6" placeholder="Metoprolol 50mg daily&#10;Lorazepam 0.5mg PRN&#10;Quetiapine 25mg nightly"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button onclick="closeAddModal()" style="flex:1; padding:10px; border-radius:8px; border:1px solid var(--border); background:transparent; font-size:13px; font-weight:600; color:var(--muted); cursor:pointer;">Cancel</button>
+      <button onclick="submitAddPatient()" style="flex:2; padding:10px; border-radius:8px; border:none; background:var(--accent); color:#fff; font-size:13px; font-weight:700; cursor:pointer;">Add to Inbox</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── Config — proxy URL is set server-side via window.PROXY_URL ────────────────
+const PROXY_URL = window.PROXY_URL || '/api/review';
+
+// ── Annotation categories ─────────────────────────────────────────────────────
+const CATS = {
+  interaction:  { label:"Drug Interaction",        icon:"⚡", color:"#FCA5A5", border:"#DC2626", text:"#7F1D1D", rule:"Absolute contraindications and major interactions only." },
+  duplication:  { label:"Therapeutic Duplication", icon:"🔁", color:"#FDE68A", border:"#D97706", text:"#78350F", rule:"Same drug class only." },
+  psychoactive: { label:"Psychoactive Medication", icon:"🧠", color:"#DDD6FE", border:"#7C3AED", text:"#3B0764", rule:"CMS F758/F757 defined list only." },
+  cms:          { label:"CMS / Compliance Risk",   icon:"📋", color:"#FBCFE8", border:"#DB2777", text:"#831843", rule:"Direct F-tag citation triggers only." },
+};
+
+const RMSI_LEVELS = {
+  Low:      { color:"#059669", bg:"#D1FAE5", icon:"🟢" },
+  Moderate: { color:"#D97706", bg:"#FEF3C7", icon:"🟡" },
+  High:     { color:"#EA580C", bg:"#FFF7ED", icon:"🟠" },
+  Critical: { color:"#DC2626", bg:"#FEE2E2", icon:"🔴" },
+};
+
+const SEV = {
+  high:     { color:"#DC2626", bg:"#FEE2E2" },
+  critical: { color:"#DC2626", bg:"#FEE2E2" },
+  moderate: { color:"#D97706", bg:"#FEF3C7" },
+  medium:   { color:"#D97706", bg:"#FEF3C7" },
+  low:      { color:"#059669", bg:"#D1FAE5" },
+};
+
+const FOLDERS = [
+  { key:"inbox",      label:"Inbox",         icon:"📥" },
+  { key:"pending",    label:"Pending Review", icon:"🕐" },
+  { key:"inprogress", label:"In Progress",    icon:"⚙️" },
+  { key:"completed",  label:"Completed",      icon:"✅" },
+  { key:"archived",   label:"Archived",       icon:"🗂️" },
+];
+
+const STATUS_LABELS = {
+  inbox:"Inbox", pending:"Pending Review", inprogress:"In Progress", completed:"Completed", archived:"Archived"
+};
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let docs = [
+  { id:"doc-001", patient:"Patient A", dob:"1941-03-12", mrn:"MRN-882741", facility:"St. Luke's Medical Center", type:"Discharge Summary", received:"2026-03-24T08:14:00", status:"inbox", faxSource:"electronic", diagnoses:["Heart Failure","Hypertension","Hyperlipidemia","Mild Cognitive Impairment"], meds:["Metoprolol Succinate 50mg daily","Lisinopril 10mg daily","Atorvastatin 40mg nightly","Furosemide 20mg daily","Aspirin 81mg daily","Donepezil 5mg nightly","Lorazepam 0.5mg PRN"], report:null },
+  { id:"doc-002", patient:"Patient B", dob:"1938-07-29", mrn:"MRN-334591", facility:"Sunrise Care Facility",      type:"Physician Order",   received:"2026-03-24T07:02:00", status:"pending", faxSource:"electronic", diagnoses:["Atrial Fibrillation","Heart Failure","GERD"], meds:["Warfarin 5mg daily","Amiodarone 200mg daily","Digoxin 0.125mg daily","Potassium Chloride 20mEq daily","Omeprazole 20mg daily"], report:null },
+  { id:"doc-003", patient:"Patient C", dob:"1945-11-03", mrn:"MRN-119203", facility:"Pineview Assisted Living",   type:"Medication List",   received:"2026-03-23T14:45:00", status:"inprogress", faxSource:"manual", diagnoses:["Dementia","Agitation","Anxiety","Insomnia"], meds:["Quetiapine 25mg nightly","Risperidone 0.5mg BID","Haloperidol 1mg PRN","Benztropine 1mg daily","Sertraline 50mg daily","Zolpidem 5mg nightly"], report:null },
+  { id:"doc-004", patient:"Patient D", dob:"1950-05-18", mrn:"MRN-667420", facility:"Greenfield Rehab Center",    type:"Discharge Summary", received:"2026-03-22T10:30:00", status:"completed", faxSource:"manual", diagnoses:["Type 2 Diabetes","Hypertension","Hyperlipidemia","CKD Stage 2"], meds:["Metformin 1000mg BID","Glipizide 5mg daily","Lisinopril 20mg daily","Amlodipine 5mg daily","Atorvastatin 80mg nightly"], report:null },
+];
+
+let currentFolder   = "inbox";
+let currentDocId    = null;
+let currentTab      = "annotated";
+let activeCategory  = null;
+let activeMed       = null;
+let generating      = false;
+let moveMenuOpen    = false;
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const fmtDate = iso => new Date(iso).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});
+const fmtTime = iso => new Date(iso).toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit"});
+const fmtDT   = iso => `${fmtDate(iso)} · ${fmtTime(iso)}`;
+const getDoc  = () => docs.find(d => d.id === currentDocId);
+const escape  = s => String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+
+function showToast(msg, type="success") {
+  const t = document.getElementById("toast");
+  t.style.display = "flex";
+  t.style.background = type === "error" ? "#DC2626" : "#111827";
+  t.style.color = "#fff";
+  t.innerHTML = `${type==="error"?"✕":"✓"} ${escape(msg)}`;
+  setTimeout(() => { t.style.display = "none"; }, 3500);
+}
+
+// ── System prompt ─────────────────────────────────────────────────────────────
+const SYSTEM_PROMPT = `You are assisting a licensed pharmacist performing a medication regimen review for Continuum Health.
+
+Your role is to identify potential medication-related problems for pharmacist review. You are not the final clinical decision-maker.
+
+GENERAL RULES
+• Do not invent diagnoses, labs, allergies, or patient history. NEVER record patient name, social security number, or any patient-identifiable information.
+• If information is missing, state that it is missing.
+• Do not instruct therapy changes; present findings for provider review.
+• Focus on clinically meaningful issues. Keep reports concise and structured.
+• Always generate a Resident Medication Safety Index (RMSI). Always return structured data for logging.
+
+REVIEW TASKS
+1. Medication-Diagnosis Alignment: medications without clear indication, diagnoses that may lack therapy.
+2. Drug Safety: major drug interactions, therapeutic duplication, high-risk medications.
+3. Polypharmacy: sedative stacking, CNS depressants, fall-risk burden. List all psychoactive medications and indicate if PRN.
+4. Unnecessary Medication Review: no documented indication, duplicate therapy, prescribing cascade, limited benefit vs risk in older adults.
+5. Special Population Concerns: geriatric safety, renal dosing, high-risk medications.
+6. Transition-of-Care Review: new medications, discontinued, dose changes, omissions.
+7. Administration Considerations: medications inappropriate for crushing if tube administration present.
+
+MEDICATION MONITORING: Anticoagulants: INR, CBC. ACE/ARBs: K+, creatinine. Diuretics: electrolytes, renal. Statins: LFTs, lipids. Diabetes: A1c, glucose. Thyroid: TSH. Renally cleared: eGFR.
+
+RMSI SCORING: Major interaction:5. High-risk duplication:5. Untreated diagnosis:4. Unclear indication high-risk:4. Transition discrepancy:4. Renal concern:3. Sedative stacking:3. Antipsychotic:3. Benzo:3. Opioid:3. Polypharmacy 10+:3. High anticholinergic:3. Gabapentin/pregabalin:2. Sedating antidepressant:2. Muscle relaxant:2. Monitoring gap:2. Minor:1. Levels: 0-3 Low|4-7 Moderate|8-12 High|13+ Critical. No double counting.
+
+ANNOTATION RULES - ONLY these 4 categories:
+"interaction": absolute contraindications and life-threatening interactions ONLY (serotonin syndrome, QT/TdP, major bleeding). NOT minor/moderate.
+"duplication": same drug class ONLY (two SSRIs, two antipsychotics, two ACE inhibitors). NOT different classes.
+"psychoactive": CMS F758/F757 ONLY — antipsychotics (haloperidol, quetiapine, risperidone, olanzapine, aripiprazole, clozapine), benzodiazepines (lorazepam, alprazolam, clonazepam, diazepam, temazepam), sedative-hypnotics (zolpidem, zaleplon, eszopiclone), opioids (morphine, oxycodone, hydrocodone, fentanyl, tramadol), antidepressants for mood/behavior (SSRIs, SNRIs, TCAs, mirtazapine, trazodone), anticonvulsants for mood (valproate, carbamazepine, gabapentin, pregabalin), mood stabilizers (lithium).
+"cms": F-tag risks ONLY — antipsychotic without behavioral diagnosis (F758), no documented indication (F757), undocumented PRN psychoactive (F758), fall-risk without monitoring (F689).
+
+OUTPUT: Single valid JSON object only. No markdown, no preamble.
+{"safety_score":<n>,"risk_level":"Low|Moderate|High|Critical","total_medications":<n>,"total_diagnoses":"<n or Not provided>","patient_overview":"<string>","rmsi_drivers":["..."],"top_concerns":["3-5 strings"],"findings":[{"medication":"","issue_type":"","concern":"","clinical_significance":"High|Moderate|Low"}],"annotations":[{"medication":"<exact input string>","category":"interaction|duplication|psychoactive|cms","label":"<3-5 words>","detail":"<one sentence>"}],"polypharmacy":[{"medication":"","class":"","psychoactive":"Yes|No","prn":"Yes|No","sedation_fall_risk":"Yes|No","notes":""}],"monitoring":[{"medication":"","monitoring_recommended":"","reason":""}],"provider_messages":[{"issue":"","message":""}],"irregularities":[{"medication":"","irregularity_type":"","description":"","recommendation":"","priority":"High|Moderate|Low"}],"cms_compliance":[{"issue_type":"","medication":"","description":"","documentation_risk":"High|Moderate|Low"}]}`;
+
+// ── API call ──────────────────────────────────────────────────────────────────
+async function callClaude(doc) {
+  const userMsg = `Perform a complete medication regimen review.\n\nDocument Type: ${doc.type}\nFacility: ${doc.facility}\nDOB: ${doc.dob}\nDiagnoses: ${doc.diagnoses.length ? doc.diagnoses.join(", ") : "Not provided"}\nTotal Medications: ${doc.meds.length}\n\nMedication List (use exact strings in annotations.medication):\n${doc.meds.map((m,i)=>`${i+1}. ${m}`).join("\n")}\n\nReturn ONLY a single valid JSON object.`;
+
+  const res = await fetch(PROXY_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ system: SYSTEM_PROMPT, messages: [{ role:"user", content: userMsg }], max_tokens: 4000 }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(()=>({}));
+    throw new Error(err?.error || `Server error ${res.status}`);
+  }
+
+  const data = await res.json();
+  const raw  = (data.content?.find(b=>b.type==="text")?.text || "").replace(/^```json\s*/i,"").replace(/^```\s*/i,"").replace(/```\s*$/i,"").trim();
+  return JSON.parse(raw);
+}
+
+// ── Render helpers ────────────────────────────────────────────────────────────
+function badgeClass(status) { return `badge badge-${status}`; }
+
+function makeTable(cols, rows, colorKey) {
+  if (!rows || !rows.length) return `<div class="empty-table">No items identified.</div>`;
+  const head = cols.map(c=>`<th>${escape(c.label)}</th>`).join("");
+  const body = rows.map(r => {
+    const sev = colorKey ? SEV[(r[colorKey]||"").toLowerCase()] : null;
+    const style = sev ? `background:${sev.bg}; color:${sev.color}` : "";
+    const cells = cols.map(c=>`<td style="${style}">${escape(r[c.key]??'—')}</td>`).join("");
+    return `<tr>${cells}</tr>`;
+  }).join("");
+  return `<div style="overflow-x:auto"><table class="data-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+}
+
+function makeSectionCard(title, icon, content) {
+  return `<div class="section-card"><div class="section-card-header">${icon} ${escape(title)}</div><div class="section-card-body">${content}</div></div>`;
+}
+
+// ── Folder nav ────────────────────────────────────────────────────────────────
+function renderFolderNav() {
+  const nav = document.getElementById("folder-nav");
+  nav.innerHTML = FOLDERS.map(f => {
+    const count = docs.filter(d=>d.status===f.key).length;
+    const active = f.key === currentFolder ? "active" : "";
+    const countBadge = count > 0 ? `<span class="folder-count">${count}</span>` : "";
+    return `<button class="folder-btn ${active}" onclick="selectFolder('${f.key}')">${f.icon} ${f.label}${countBadge}</button>`;
+  }).join("");
+}
+
+function selectFolder(key) {
+  currentFolder = key;
+  currentDocId  = null;
+  activeCategory = null;
+  activeMed = null;
+  renderFolderNav();
+  renderDocList();
+  showNoDoc();
+}
+
+// ── Doc list ──────────────────────────────────────────────────────────────────
+function renderDocList() {
+  const visible = docs.filter(d=>d.status===currentFolder);
+  const folder  = FOLDERS.find(f=>f.key===currentFolder);
+  document.getElementById("folder-title").textContent = folder?.label || "";
+  document.getElementById("folder-count").textContent = `${visible.length} document${visible.length!==1?"s":""}`;
+
+  const container = document.getElementById("doc-items");
+  if (!visible.length) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon">📭</div><div style="font-size:13px">No documents here</div><button class="btn-add" onclick="openAddModal()" style="margin-top:8px">＋ Add Patient Case</button></div>`;
+    return;
+  }
+  container.innerHTML = visible.map(d => {
+    const active = d.id === currentDocId ? "active" : "";
+    const fax  = d.faxSource==="electronic" ? `<span class="chip" style="color:var(--accent);background:var(--accent-light)">eFax</span>` : "";
+    const ann  = d.report ? `<span class="chip" style="color:var(--green);background:var(--green-light)">Annotated</span>` : "";
+    return `<button class="doc-item ${active}" onclick="selectDoc('${d.id}')">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:5px">
+        <span class="doc-item-name">${escape(d.patient)}</span>
+        <span class="${badgeClass(d.status)}">${escape(STATUS_LABELS[d.status])}</span>
+      </div>
+      <div class="doc-item-meta">${escape(d.type)} · ${d.meds.length} meds</div>
+      <div class="doc-item-chips"><span class="doc-item-date">${fmtDate(d.received)}</span>${fax}${ann}</div>
+    </button>`;
+  }).join("");
+}
+
+// ── Doc view ──────────────────────────────────────────────────────────────────
+function showNoDoc() {
+  document.getElementById("no-doc-state").style.display = "flex";
+  document.getElementById("doc-view").style.display = "none";
+}
+function showDocView() {
+  document.getElementById("no-doc-state").style.display = "none";
+  document.getElementById("doc-view").style.display = "flex";
+}
+
+function selectDoc(id) {
+  currentDocId   = id;
+  activeCategory = null;
+  activeMed      = null;
+  renderFolderNav();
+  renderDocList();
+  renderDocHeader();
+  renderContentArea();
+  showDocView();
+}
+
+function renderDocHeader() {
+  const doc = getDoc(); if (!doc) return;
+  document.getElementById("dh-patient").textContent  = doc.patient;
+  const badge = document.getElementById("dh-badge");
+  badge.className = badgeClass(doc.status);
+  badge.textContent = STATUS_LABELS[doc.status];
+  const fax = document.getElementById("dh-fax");
+  fax.style.display = doc.faxSource==="electronic" ? "inline" : "none";
+  document.getElementById("dh-mrn").textContent      = `MRN: ${doc.mrn}`;
+  document.getElementById("dh-facility").textContent = `Facility: ${doc.facility}`;
+  document.getElementById("dh-received").textContent = fmtDT(doc.received);
+
+  // Move menu
+  const menu = document.getElementById("move-menu");
+  menu.innerHTML = FOLDERS.filter(f=>f.key!==doc.status).map(f=>
+    `<button class="dropdown-item" onclick="moveDoc('${doc.id}','${f.key}')">${f.icon} ${f.label}</button>`
+  ).join("");
+
+  // Run button
+  const btn = document.getElementById("run-btn");
+  btn.disabled = generating;
+  document.getElementById("run-btn-text").textContent = doc.report ? "Re-run Review" : "Run Medication Review";
+}
+
+function toggleMoveMenu() {
+  moveMenuOpen = !moveMenuOpen;
+  document.getElementById("move-menu").classList.toggle("open", moveMenuOpen);
+}
+document.addEventListener("click", e => {
+  if (!e.target.closest(".dropdown-wrap")) {
+    moveMenuOpen = false;
+    document.getElementById("move-menu")?.classList.remove("open");
+  }
+});
+
+function moveDoc(id, status) {
+  docs = docs.map(d => d.id===id ? {...d, status} : d);
+  moveMenuOpen = false;
+  renderFolderNav();
+  renderDocList();
+  renderDocHeader();
+  showToast(`Moved to ${STATUS_LABELS[status]}`);
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  currentTab = tab;
+  document.getElementById("tab-annotated").className = "tab-btn" + (tab==="annotated"?" active":"");
+  document.getElementById("tab-report").className    = "tab-btn" + (tab==="report"?" active":"");
+  renderContentArea();
+}
+
+// ── Content area ──────────────────────────────────────────────────────────────
+function showState(id) {
+  ["state-generating","state-error","state-empty","state-annotated","state-report"].forEach(s => {
+    document.getElementById(s).style.display = s===id ? "block" : "none";
+  });
+}
+
+function renderContentArea() {
+  const doc = getDoc(); if (!doc) return;
+  const tabs = document.getElementById("tabs");
+
+  if (generating) { tabs.style.display="none"; showState("state-generating"); return; }
+  if (!doc.report) { tabs.style.display="none"; showState("state-empty"); return; }
+
+  tabs.style.display = "flex";
+  if (currentTab==="annotated") { renderAnnotatedView(doc); showState("state-annotated"); }
+  else { renderReportView(doc); showState("state-report"); }
+}
+
+// ── Annotated view ────────────────────────────────────────────────────────────
+function renderAnnotatedView(doc) {
+  const r = doc.report;
+  const annotations = r.annotations || [];
+
+  // Flag count
+  document.getElementById("flag-count").textContent = annotations.length ? `${annotations.length} flag${annotations.length!==1?"s":""}` : "";
+
+  // Doc preview
+  document.getElementById("doc-preview-box").innerHTML =
+    `<div style="font-weight:700;margin-bottom:3px">${escape(doc.type.toUpperCase())} · ${escape(doc.facility)}</div>
+     <div>MRN: ${escape(doc.mrn)} · DOB: ${escape(doc.dob)}</div>
+     ${doc.diagnoses.length ? `<div style="margin-top:4px"><b>Dx:</b> ${escape(doc.diagnoses.join(", "))}</div>` : ""}`;
+
+  // Category filter
+  const presentCats = [...new Set(annotations.map(a=>a.category))];
+  const filterWrap = document.getElementById("cat-filter-wrap");
+  if (presentCats.length) {
+    const btns = presentCats.map(key => {
+      const cat = CATS[key]; if (!cat) return "";
+      const on = activeCategory===key;
+      return `<button class="cat-btn" style="border:1.5px solid ${cat.border};background:${on?cat.border:cat.color};color:${on?"#fff":cat.text}" onclick="toggleCategory('${key}')">${cat.icon} ${cat.label}</button>`;
+    }).join("");
+    const clear = activeCategory ? `<button class="cat-clear" onclick="toggleCategory(null)">✕ Clear</button>` : "";
+    filterWrap.innerHTML = `<div class="cat-filter-label">Filter by category</div><div class="cat-filter-btns">${btns}${clear}</div>`;
+  } else {
+    filterWrap.innerHTML = "";
+  }
+
+  // Build annotation map
+  const annotMap = {};
+  annotations.forEach(a => { if (!annotMap[a.medication]) annotMap[a.medication]=[]; annotMap[a.medication].push(a); });
+
+  // Med list
+  const medList = document.getElementById("med-list");
+  medList.innerHTML = doc.meds.map((med, i) => {
+    const annots = annotMap[med] || [];
+    const visible = activeCategory ? annots.filter(a=>a.category===activeCategory) : annots;
+    const dimmed  = activeCategory && annots.length && !visible.length;
+    const hasIssue = annots.length > 0;
+    const primaryCat = visible[0]?.category || annots[0]?.category;
+    const cat = CATS[primaryCat];
+    const borderStyle = activeMed===med ? `2px solid var(--accent)` : visible.length ? `1.5px solid ${CATS[visible[0].category]?.border}` : `1.5px solid var(--border)`;
+    const bgStyle = visible.length ? CATS[visible[0].category]?.color : "var(--surface)";
+    const tags = visible.map(a => {
+      const c = CATS[a.category];
+      return `<span class="med-tag" style="background:${c?.border}">${c?.icon} ${escape(a.label)}</span>`;
+    }).join("");
+    return `<div class="med-item ${hasIssue?"clickable":""} ${dimmed?"dimmed":""}"
+      style="border:${borderStyle};background:${bgStyle}"
+      onclick="${hasIssue?`toggleDrawer(${JSON.stringify(med)})`:''}">
+      <div class="med-item-row">
+        <span class="med-num">${i+1}.</span>
+        <div style="flex:1">
+          <div class="med-name ${hasIssue?"flagged":""}">${escape(med)}</div>
+          ${visible.length ? `<div class="med-tags">${tags}</div>` : ""}
+        </div>
+        ${annots.length>1&&!activeCategory ? `<span style="font-size:10px;font-weight:800;color:${cat?.border};background:rgba(255,255,255,0.6);border-radius:99px;padding:1px 6px">${annots.length}</span>` : ""}
+      </div>
+    </div>`;
+  }).join("");
+
+  // Legend
+  document.getElementById("legend-box").innerHTML = `
+    <div class="legend-title">Annotation Legend</div>
+    ${Object.entries(CATS).map(([key,cat])=>`
+      <div class="legend-item">
+        <span class="legend-swatch" style="background:${cat.color};border-color:${cat.border}"></span>
+        <div><div class="legend-name">${cat.icon} ${cat.label}</div><div class="legend-rule">${cat.rule}</div></div>
+      </div>`).join("")}`;
+
+  // RMSI mini
+  const rmsi = RMSI_LEVELS[r.risk_level] || RMSI_LEVELS.Moderate;
+  document.getElementById("rmsi-mini").innerHTML = `
+    <div class="rmsi-hero" style="background:${rmsi.bg};border-color:${rmsi.color};margin-bottom:14px">
+      <span style="font-size:30px">${rmsi.icon}</span>
+      <div style="flex:1">
+        <div class="rmsi-score" style="color:${rmsi.color}">RMSI ${r.safety_score} — ${r.risk_level}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px">${r.total_medications} medications · ${r.total_diagnoses} diagnoses</div>
+      </div>
+      <button onclick="switchTab('report')" style="background:${rmsi.color};color:#fff;border:none;border-radius:8px;padding:7px 13px;font-size:12px;font-weight:700;cursor:pointer">Full Report →</button>
+    </div>`;
+
+  // Annotation summary
+  const counts = {};
+  annotations.forEach(a => { counts[a.category]=(counts[a.category]||0)+1; });
+  const summaryCard = document.getElementById("annot-summary");
+  if (Object.keys(counts).length) {
+    summaryCard.style.display = "block";
+    document.getElementById("annot-summary-body").innerHTML = Object.entries(counts).map(([key,count])=>{
+      const cat = CATS[key]; if (!cat) return "";
+      const on = activeCategory===key;
+      return `<button class="annot-summary-item ${on?"active":""}" style="${on?`border-color:${cat.border};background:${cat.color}`:""}" onclick="toggleCategory('${key}')">
+        <span class="annot-swatch" style="background:${cat.color};border-color:${cat.border}"></span>
+        <span class="annot-summary-label">${cat.icon} ${cat.label}</span>
+        <span class="annot-summary-count" style="color:${cat.border};background:${cat.color};border-color:${cat.border}">${count}</span>
+      </button>`;
+    }).join("");
+  } else { summaryCard.style.display="none"; }
+
+  // Concerns
+  const concernsCard = document.getElementById("concerns-card");
+  if (r.top_concerns?.length) {
+    concernsCard.style.display="block";
+    document.getElementById("concerns-body").innerHTML = r.top_concerns.map((c,i)=>
+      `<div class="concern-item"><span class="concern-num">${i+1}.</span><span class="concern-text">${escape(c)}</span></div>`
+    ).join("");
+  } else { concernsCard.style.display="none"; }
+}
+
+function toggleCategory(key) {
+  activeCategory = (key && activeCategory!==key) ? key : null;
+  activeMed = null;
+  closeDrawer();
+  const doc = getDoc(); if (doc?.report) renderAnnotatedView(doc);
+}
+
+function toggleDrawer(med) {
+  const doc = getDoc(); if (!doc?.report) return;
+  if (activeMed===med) { activeMed=null; closeDrawer(); return; }
+  activeMed = med;
+  const annotations = (doc.report.annotations||[]).filter(a=>a.medication===med);
+  document.getElementById("drawer-med-name").textContent = med;
+  document.getElementById("drawer-items").innerHTML = annotations.map(a=>{
+    const cat = CATS[a.category];
+    return `<div class="drawer-item" style="background:${cat?.color};border:1px solid ${cat?.border}">
+      <div class="drawer-item-header">
+        <span>${cat?.icon}</span>
+        <span style="font-weight:800;font-size:12px;color:${cat?.text}">${cat?.label}</span>
+        <span class="drawer-item-label" style="background:${cat?.border}">${escape(a.label)}</span>
+      </div>
+      <div class="drawer-item-detail" style="color:${cat?.text}">${escape(a.detail)}</div>
+    </div>`;
+  }).join("");
+  document.getElementById("annotation-drawer").classList.add("open");
+}
+
+function closeDrawer() {
+  activeMed = null;
+  document.getElementById("annotation-drawer").classList.remove("open");
+}
+
+// ── Report view ───────────────────────────────────────────────────────────────
+function renderReportView(doc) {
+  const r = doc.report;
+  const rmsi = RMSI_LEVELS[r.risk_level] || RMSI_LEVELS.Moderate;
+
+  const concerns = (r.top_concerns||[]).map((c,i)=>
+    `<div class="concern-item"><span class="concern-num">${i+1}.</span><span class="concern-text">${escape(c)}</span></div>`
+  ).join("");
+
+  const provMsgs = (r.provider_messages||[]).map(m=>
+    `<div class="provider-msg"><div class="provider-msg-issue">${escape(m.issue)}</div><div class="provider-msg-text">${escape(m.message)}</div></div>`
+  ).join("");
+
+  document.getElementById("report-content").innerHTML = `
+    <div class="rmsi-hero" style="background:${rmsi.bg};border-color:${rmsi.color}">
+      <span class="rmsi-icon">${rmsi.icon}</span>
+      <div style="flex:1">
+        <div class="rmsi-score" style="color:${rmsi.color}">RMSI ${r.safety_score} — ${r.risk_level} Risk</div>
+        <div class="rmsi-overview">${escape(r.patient_overview||"")}</div>
+        <div class="rmsi-drivers">${(r.rmsi_drivers||[]).map(d=>`<span class="rmsi-driver" style="color:${rmsi.color}">${escape(d)}</span>`).join("")}</div>
+      </div>
+      <button onclick="downloadReport()" style="background:${rmsi.color};color:#fff;border:none;border-radius:9px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">⬇ Export</button>
+    </div>
+
+    ${r.top_concerns?.length ? makeSectionCard("Key Medication Concerns","⚡",`<div style="display:flex;flex-direction:column;gap:8px">${concerns}</div>`) : ""}
+
+    ${makeSectionCard("Medication Review Findings","🔍",makeTable(
+      [{key:"medication",label:"Medication"},{key:"issue_type",label:"Issue Type"},{key:"concern",label:"Concern"},{key:"clinical_significance",label:"Significance"}],
+      r.findings,"clinical_significance"))}
+
+    ${makeSectionCard("Polypharmacy & Psychoactive Medications","🧠",makeTable(
+      [{key:"medication",label:"Medication"},{key:"class",label:"Class"},{key:"psychoactive",label:"Psychoactive"},{key:"prn",label:"PRN"},{key:"sedation_fall_risk",label:"Fall Risk"},{key:"notes",label:"Notes"}],
+      r.polypharmacy,null))}
+
+    ${makeSectionCard("Monitoring & Lab Review","🧪",makeTable(
+      [{key:"medication",label:"Medication"},{key:"monitoring_recommended",label:"Monitoring"},{key:"reason",label:"Reason"}],
+      r.monitoring,null))}
+
+    ${r.provider_messages?.length ? makeSectionCard("Provider Review Messages","💬",provMsgs) : ""}
+
+    ${makeSectionCard("Medication Irregularity Report","⚠️",makeTable(
+      [{key:"medication",label:"Medication"},{key:"irregularity_type",label:"Type"},{key:"description",label:"Description"},{key:"recommendation",label:"Recommendation"},{key:"priority",label:"Priority"}],
+      r.irregularities,"priority"))}
+
+    ${makeSectionCard("CMS Compliance Quick Screen","📋",makeTable(
+      [{key:"issue_type",label:"Issue Type"},{key:"medication",label:"Medication"},{key:"description",label:"Description"},{key:"documentation_risk",label:"Risk"}],
+      r.cms_compliance,"documentation_risk"))}
+
+    <div class="disclaimer"><b>Clinical Disclaimer:</b> AI-assisted report. Clinical judgment of the reviewing pharmacist supersedes all findings. Generated by Claude (Anthropic) via the Continuum Health medication review engine.</div>`;
+}
+
+// ── Generate report ───────────────────────────────────────────────────────────
+async function generateReport() {
+  const doc = getDoc(); if (!doc || generating) return;
+  generating = true;
+  const btn = document.getElementById("run-btn");
+  btn.disabled = true;
+  btn.innerHTML = `<span class="spin">⟳</span> Running…`;
+  document.getElementById("tabs").style.display = "none";
+  showState("state-generating");
+
+  try {
+    const report = await callClaude(doc);
+    const newStatus = (doc.status==="inbox"||doc.status==="pending") ? "inprogress" : doc.status;
+    docs = docs.map(d => d.id===doc.id ? {...d, report, status:newStatus} : d);
+    currentTab = "annotated";
+    generating = false;
+    renderFolderNav();
+    renderDocList();
+    renderDocHeader();
+    renderContentArea();
+    showToast("Review complete — annotations applied");
+  } catch(e) {
+    generating = false;
+    document.getElementById("error-msg-text").textContent = e.message;
+    showState("state-error");
+    btn.disabled = false;
+    btn.innerHTML = `<span>⚕</span> Run Medication Review`;
+    showToast("Review failed", "error");
+  }
+}
+
+// ── Download report ───────────────────────────────────────────────────────────
+function downloadReport() {
+  const doc = getDoc(); if (!doc?.report) return;
+  const r = doc.report;
+  const lines = [
+    "═══════════════════════════════════════════════════════════════",
+    "              MEDINTEL — MEDICATION REVIEW REPORT",
+    "             Powered by Continuum Health AI Engine",
+    "═══════════════════════════════════════════════════════════════",
+    `Generated: ${new Date().toLocaleString()}`,
+    `Facility: ${doc.facility}   |   Document: ${doc.type}   |   MRN: ${doc.mrn}`,
+    "", `RMSI SCORE: ${r.safety_score} — ${r.risk_level} Risk`,
+    `Overview: ${r.patient_overview}`,
+    "", "RMSI DRIVERS:", ...(r.rmsi_drivers||[]).map(d=>`  • ${d}`),
+    "", "KEY CONCERNS:", ...(r.top_concerns||[]).map((c,i)=>`  ${i+1}. ${c}`),
+    "", "─── ANNOTATIONS ─────────────────────────────────────────────────",
+    ...(r.annotations||[]).map(a=>`  [${CATS[a.category]?.label||a.category}] ${a.medication}\n       ${a.label}: ${a.detail}`),
+    "", "─── FINDINGS ────────────────────────────────────────────────────",
+    ...(r.findings||[]).map(f=>`  [${f.clinical_significance}] ${f.medication} — ${f.issue_type}: ${f.concern}`),
+    "", "─── POLYPHARMACY ────────────────────────────────────────────────",
+    ...(r.polypharmacy||[]).map(p=>`  ${p.medication} | ${p.class} | Psychoactive: ${p.psychoactive} | PRN: ${p.prn} | Fall Risk: ${p.sedation_fall_risk}`),
+    "", "─── MONITORING ──────────────────────────────────────────────────",
+    ...(r.monitoring||[]).map(m=>`  ${m.medication} → ${m.monitoring_recommended} (${m.reason})`),
+    "", "─── PROVIDER MESSAGES ───────────────────────────────────────────",
+    ...(r.provider_messages||[]).map(m=>`  [${m.issue}] ${m.message}`),
+    "", "─── IRREGULARITIES ──────────────────────────────────────────────",
+    ...(r.irregularities||[]).map(x=>`  [${x.priority}] ${x.medication} | ${x.irregularity_type}: ${x.description}\n       → ${x.recommendation}`),
+    "", "─── CMS COMPLIANCE ──────────────────────────────────────────────",
+    ...(r.cms_compliance||[]).map(c=>`  [Risk: ${c.documentation_risk}] ${c.issue_type} | ${c.medication}: ${c.description}`),
+    "", "═══════════════════════════════════════════════════════════════",
+    "DISCLAIMER: AI-assisted. Pharmacist clinical judgment supersedes all findings.",
+    "═══════════════════════════════════════════════════════════════",
+  ];
+  const blob = new Blob([lines.join("\n")], {type:"text/plain"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `MedIntel_${doc.mrn}_${new Date().toISOString().slice(0,10)}.txt`;
+  a.click();
+  showToast("Report exported");
+}
+
+// ── Add patient modal ─────────────────────────────────────────────────────────
+function openAddModal()  { document.getElementById("add-modal").style.display="flex"; }
+function closeAddModal() { document.getElementById("add-modal").style.display="none"; }
+function submitAddPatient() {
+  const meds = document.getElementById("f-meds").value.trim();
+  if (!meds) return;
+  const newDoc = {
+    id: `doc-${Date.now()}`,
+    patient:  document.getElementById("f-patient").value.trim()   || "Custom Patient",
+    dob:      document.getElementById("f-dob").value.trim()       || "Not provided",
+    mrn:      document.getElementById("f-mrn").value.trim()       || `MRN-${Date.now()}`,
+    facility: document.getElementById("f-facility").value.trim()  || "Not provided",
+    type:     document.getElementById("f-type").value,
+    received: new Date().toISOString(),
+    status:   "inbox", faxSource: "manual",
+    diagnoses: document.getElementById("f-diagnoses").value.split("\n").map(s=>s.trim()).filter(Boolean),
+    meds:      meds.split("\n").map(s=>s.trim()).filter(Boolean),
+    report:    null,
+  };
+  docs = [newDoc, ...docs];
+  closeAddModal();
+  selectFolder("inbox");
+  selectDoc(newDoc.id);
+  showToast("Patient case added to Inbox");
+  // clear form
+  ["f-patient","f-dob","f-mrn","f-facility","f-diagnoses","f-meds"].forEach(id=>{ document.getElementById(id).value=""; });
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+renderFolderNav();
+renderDocList();
+showNoDoc();
+</script>
+</body>
+</html>
